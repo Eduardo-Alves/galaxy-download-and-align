@@ -1,0 +1,54 @@
+<tool id="download_align" name="Download and align" version="0.0.1">
+  <description> Downloads fastq.gz, unzips, trims with cutadapt and alignes to reference</description>
+  <requirements>
+      <requirement type="package" version="2.2.4">bowtie2</requirement>
+      <requirement type="package" version="0.1.19">samtools</requirement>
+      <requirement type="package" version="1.6">cutadapt</requirement>
+  </requirements>
+  <command>
+  #set index_path = ''
+  #if str($reference_genome.source) == "history":
+    bowtie2-build "$reference_genome.own_file" genome &amp;&amp;
+    ln -s "$reference_genome.own_file" genome.fa &amp;&amp;
+    #set index_path = 'genome'
+  #else:
+    #set index_path = $reference_genome.index.fields.path
+  #end if
+  wget -O - $file | gunzip -c | bowtie2  -q 
+  ## wget -O - $file | gunzip -c | cutadapt  -q 20 -a &apos;AGATCGGAAGAGC&apos; -A &apos;AGATCGGAAGAGC&apos; - | bowtie2  -q 
+  ## index file path
+  -x $index_path 
+  -U - | samtools view -bS - > $output
+  </command>
+  <stdio>
+    <exit_code range="1:" level="fatal" description="Tool exception" />
+  </stdio>
+  <inputs>
+    <param format="text" name="file" type="text" label="URL for fastq.gz"/>
+    <conditional name="reference_genome">
+          <param name="source" type="select" label="Will you select a reference genome from your history or use a built-in index?" help="Built-ins were indexed using default options. See `Indexes` section of help below">
+            <option value="indexed">Use a built-in genome index</option>
+            <option value="history">Use a genome from the history and build index</option>
+          </param>
+          <when value="indexed">
+            <param name="index" type="select" label="Select reference genome" help="If your genome of interest is not listed, contact the Galaxy team">
+              <options from_data_table="bowtie2_indexes">
+                <filter type="sort_by" column="2"/>
+                <validator type="no_options" message="No indexes are available for the selected input dataset"/>
+              </options>
+            </param>
+          </when>
+          <when value="history">
+            <param name="own_file" type="data" format="fasta" metadata_name="dbkey" label="Select reference genome" />
+          </when>
+    </conditional>
+  </inputs> 
+  <outputs> 
+      <data format="bam" name="output" label="${tool.name} on ${on_string}: aligned reads (sorted BAM)" />
+  </outputs>
+  <help>
+    This tool extracts reads from sra, runs cutdapt and bowtie and outputs a bam file. 
+
+    Contact Eduardo Alves at eduardoalves@abdn.ac.uk for support and bug reports.
+  </help>
+</tool>
